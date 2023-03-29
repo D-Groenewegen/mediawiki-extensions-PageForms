@@ -1926,9 +1926,10 @@ $(document).ready( function() {
 // the current open instance.
 $('form#pfForm').click( function(e) {
 	var $target = $(e.target);
-	// Ignore the "add instance" buttons - those get handling of their own.
+	// Ignore the "add instance" buttons - those get handling of their own; same for removal of select2 tokens
 	var clickedOnAddAnother = $target.parents('.multipleTemplateAdder').length > 0;
-	if ( clickedOnAddAnother || $target.hasClass('addAboveButton') ) {
+	var clickedSelect2Remove = $target.hasClass('select2-selection__choice__remove');
+	if ( clickedOnAddAnother || $target.hasClass('addAboveButton') || clickedSelect2Remove ) {
 		return;
 	}
 

@@ -233,6 +233,9 @@
 			}
 			return pf.select2.base.prototype.textHighlight( result.id, term );
 		};
+		opts.templateSelection = function( result ) {
+			return $('<span>' + result.text + '</span>');
+		};
 		opts.language.searching = function() {
 			return mw.msg( "pf-autocomplete-searching" );
 		};
