@@ -405,6 +405,8 @@ SERVICE wikibase:label { bd:serviceParam wikibase:language \"" . $wgLanguageCode
 	}
 
 	/**
+	 * Get sequential array of pages in SMW concept
+	 * Version for local autocompletion
 	 * @param string $conceptName
 	 * @param string|null $substring
 	 * @return string[]
@@ -518,6 +520,64 @@ SERVICE wikibase:label { bd:serviceParam wikibase:language \"" . $wgLanguageCode
 		}
 		array_multisort( $sortkeys, $pages );
 		return $pages;
+	}
+
+	/**
+	 * Get sequential array of pages in SMW concept
+	 * Version for remote autocompletion
+	 * https://www.semantic-mediawiki.org/wiki/Help:Full-text_search
+	 * @param string $conceptName
+	 * @param string|null $substring
+	 * @param string|null $mappingProperty
+	 * @param bool $useDisplayTitle
+	 * @return array
+	 */
+	public static function getAllPagesForConceptRemotely( 
+		string $conceptName,
+		mixed $substring = null,
+		mixed $mappingProperty = null,
+		bool $useDisplayTitle = false
+	): array {
+		//print_r( "[using ly for $conceptName]" ); 
+		$store = PFUtils::getSMWStore();
+		if ( $store == null ) {
+			return [];
+		}
+		// Build query string and prelims
+		$rawQuery = "";
+		$conceptTitle = Title::makeTitleSafe( SMW_NS_CONCEPT, $conceptName );
+		$conceptArg = "[[{$conceptTitle}]]";
+		global $wgPageFormsAutocompleteOnAllChars;
+		$prefixWildcard = ( $wgPageFormsAutocompleteOnAllChars ) ? "*": "";
+		if ( $mappingProperty !== null ) {
+				$rawQuery .= "{$conceptArg} [[{$mappingProperty}::~{$prefixWildcard}{$substring}*]] OR {$conceptArg} [[{$mappingProperty}::~{$substring}*]]";
+			} elseif ( $useDisplayTitle == true ) {
+				$rawQuery .= "{$conceptArg} [[Display title of::~{$prefixWildcard}{$substring}*]]";
+			} else {
+				$rawQuery .= "{$conceptArg} [[~{$prefixWildcard}{$substring}*]]";
+		}
+		// Run query and get pages
+		$retrievedPages = self::getAllPagesForQuery( $rawQuery );
+		return $retrievedPages;
+	}
+
+	/**
+	 * Get pages from property with mapping property 
+	 * @todo: only experimentally supported
+	 * @param string $propertyName
+	 * @param string $substring
+	 * @param string|null $mappingProperty
+	 * @return array
+	 */
+	public static function getAllMappedPagesForPropertyRemotely(
+		string $propertyName,
+		string $substring = "+",
+		mixed $mappingProperty = null
+	) {
+		$mappingProperty = ( $mappingProperty !== null ) ? $mappingProperty : "Display title of";
+		$rawQuery = "[[-{$propertyName}::+]] [[{$mappingProperty}::~*{$substring}*]] OR [[-{$propertyName}::+]] [[{$mappingProperty}::~{$substring}*]]";
+		$res = self::getAllPagesForQuery( $rawQuery );
+		return $res;
 	}
 
 	public static function getAllPagesForNamespace( $namespaceStr, $substring = null ) {
@@ -750,7 +810,18 @@ SERVICE wikibase:label { bd:serviceParam wikibase:language \"" . $wgLanguageCode
 		return [ $autocompleteFieldType, $autocompletionSource ];
 	}
 
-	public static function getRemoteDataTypeAndPossiblySetAutocompleteValues( $autocompleteFieldType, $autocompletionSource, $field_args, $autocompleteSettings ) {
+	/**
+	 * @param string $autocompleteFieldType
+	 * @param string $autocompletionSource
+	 * @param array $field_args
+	 * @param array? $autocompleteSettings
+	 */
+	public static function getRemoteDataTypeAndPossiblySetAutocompleteValues( 
+		$autocompleteFieldType, 
+		$autocompletionSource, 
+		$field_args, 
+		$autocompleteSettings 
+	) {
 		global $wgPageFormsMaxLocalAutocompleteValues, $wgPageFormsAutocompleteValues;
 
 		if ( $autocompleteFieldType == 'external_url' || $autocompleteFieldType == 'wikidata' ) {
@@ -771,14 +842,18 @@ SERVICE wikibase:label { bd:serviceParam wikibase:language \"" . $wgLanguageCode
 			$autocompleteValues = self::getAutocompleteValues( $autocompletionSource, $autocompleteFieldType );
 		}
 
-		if ( count( $autocompleteValues ) > $wgPageFormsMaxLocalAutocompleteValues &&
-			$autocompleteFieldType != 'values' &&
-			!array_key_exists( 'values dependent on', $field_args ) &&
-			!array_key_exists( 'mapping template', $field_args ) &&
-			!array_key_exists( 'mapping property', $field_args )
+		//
+		if ( count( $autocompleteValues ) > $wgPageFormsMaxLocalAutocompleteValues 
+			&& $autocompleteFieldType != 'values' 
+			&& !array_key_exists( 'values dependent on', $field_args ) 
+			// Neither of these should prevent remote autocompletion
+			//&& !array_key_exists( 'mapping template', $field_args ) 
+			//&& !array_key_exists( 'mapping property', $field_args )
 		) {
+			// remote
 			return $autocompleteFieldType;
 		} else {
+			// local
 			$wgPageFormsAutocompleteValues[$autocompleteSettings] = $autocompleteValues;
 			return null;
 		}
@@ -814,19 +889,21 @@ SERVICE wikibase:label { bd:serviceParam wikibase:language \"" . $wgLanguageCode
 
 	/**
 	 * Helper function to get an array of values out of what may be either
-	 * an array or a delimited string.
-	 *
+	 * an array or a (delimited) string
 	 * @param string[]|string $value
 	 * @param string $delimiter
 	 * @return string[]
 	 */
-	public static function getValuesArray( $value, $delimiter ) {
+	public static function getValuesArray( $value, $delimiter = null ) {
+		$res = [];
 		if ( is_array( $value ) ) {
-			return $value;
-		} else {
-			// Remove extra spaces.
-			return array_map( 'trim', explode( $delimiter, $value ) );
+			$res = $value;
+		} elseif ( is_string( $value ) ) {
+			$res = ( $delimiter !== null  ) 
+				? array_map( 'trim', explode( $delimiter, $value ) )
+				: [ $value ];
 		}
+		return $res;
 	}
 
 	public static function getValuesFromExternalURL( $external_url_alias, $substring ) {
@@ -898,57 +975,38 @@ SERVICE wikibase:label { bd:serviceParam wikibase:language \"" . $wgLanguageCode
 	}
 
 	/**
-	 * Returns an array of the names of pages that are the result of an SMW query.
-	 *
+	 * Return an array of the names of pages that are the result of an SMW query.
+	 * No mapping 
 	 * @param string $rawQuery the query string like [[Category:Trees]][[age::>1000]]
 	 * @return array
 	 */
 	public static function getAllPagesForQuery( $rawQuery ) {
+		$store = PFUtils::getSMWStore();
 		global $wgPageFormsUseDisplayTitle;
+		$rawQuery = $rawQuery . "|named args=yes|link=none|limit={$wgPageFormsMaxAutocompleteValues}|searchlabel=";
 		$rawQueryArray = explode( "|", $rawQuery );
+
 		list( $queryString, $processedParams, $printouts ) = SMWQueryProcessor::getComponentsFromFunctionParams( $rawQueryArray, false );
 		SMWQueryProcessor::addThisPrintout( $printouts, $processedParams );
 		$processedParams = SMWQueryProcessor::getProcessedParams( $processedParams, $printouts );
-		$queryObj = SMWQueryProcessor::createQuery( $queryString,
-			$processedParams,
-			SMWQueryProcessor::SPECIAL_PAGE, '', $printouts );
-		$res = PFUtils::getSMWStore()->getQueryResult( $queryObj );
-		$rows = $res->getResults();
-		$titles = [];
-		$pages = [];
 
+		// run query and get results
+		$queryObj = SMWQueryProcessor::createQuery( 
+			$queryString,
+			$processedParams, 
+			SMWQueryProcessor::SPECIAL_PAGE, 
+			'', 
+			$printouts );
+		$queryRes = $store->getQueryResult( $queryObj );
+		$rows = $queryRes->getResults();
+
+		// Create array of pagenames
+		$titles = $pages = $pageNames = [];
 		foreach ( $rows as $diWikiPage ) {
-			$titles[] = $pages[] = $diWikiPage->getTitle();
+			//$titles[] = $pages[] = $diWikiPage->getTitle();
+			$pageNames[] = $diWikiPage->getTitle()->getFullText();
 		}
-
-		if ( $wgPageFormsUseDisplayTitle ) {
-			$services = MediaWikiServices::getInstance();
-			if ( method_exists( $services, 'getPageProps' ) ) {
-				// MW 1.36+
-				$pageProps = $services->getPageProps();
-			} else {
-				$pageProps = PageProps::getInstance();
-			}
-			$properties = $pageProps->getProperties( $titles,
-				[ 'displaytitle', 'defaultsort' ] );
-			foreach ( $titles as $title ) {
-				if ( array_key_exists( $title->getArticleID(), $properties ) ) {
-					$titleprops = $properties[$title->getArticleID()];
-				} else {
-					$titleprops = [];
-				}
-
-				$titleText = $title->getPrefixedText();
-				if ( array_key_exists( 'displaytitle', $titleprops ) &&
-					 trim( str_replace( '&#160;', '', strip_tags( $titleprops['displaytitle'] ) ) ) !== '' ) {
-					$pages[$titleText] = htmlspecialchars_decode( $titleprops['displaytitle'] );
-				} else {
-					$pages[$titleText] = $titleText;
-				}
-			}
-		}
-
-		return $pages;
+		return $pageNames;
 	}
 
 	public static function getMaxValuesToRetrieve( $substring = null ) {
