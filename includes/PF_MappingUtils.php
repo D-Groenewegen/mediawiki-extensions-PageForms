@@ -1,0 +1,389 @@
+<?php
+/**
+ * Methods for mapping values to labels
+ * @file
+ * @ingroup PF
+*/
+
+use MediaWiki\MediaWikiServices;
+
+class PFMappingUtils {
+
+	 /**
+	 * @param array $args
+	 * @param bool $useDisplayTitle
+	 * @return string|null
+	 */
+	public static function getMappngType ( array $args, bool $useDisplayTitle = false ) {
+		$mappingType = null;
+		if ( array_key_exists( 'mapping property', $args ) ) {
+			$mappingType = 'mapping property';
+			// $mappingSource[] = $args['mapping property'];
+		} elseif ( array_key_exists( 'mapping template', $args ) ) {
+			$mappingType = 'mapping template';
+		} elseif ( array_key_exists( 'mapping cargo table', $args ) &&
+		array_key_exists( 'mapping cargo field', $args ) ) {
+			$mappingType = 'mapping cargo field';
+		} elseif ( array_key_exists( 'value_labels', $args ) &&
+			is_array( $args['value_labels'] ) ) {
+			$mappingType = 'mapping using translate';
+		} elseif ( $useDisplayTitle == true ) {
+			$mappingType = 'displaytitle';
+		}
+		return $mappingType;
+	}
+
+	/**
+	 * Map values if possible and return a named array
+	 * @param array $values
+	 * @param array $args
+	 * @return array
+	 */
+	public static function getMappedValuesForInput( array $values, array $args = [] ) {
+		global $wgPageFormsUseDisplayTitle;
+		$mappingType = self::getMappingType( $args, $wgPageFormsUseDisplayTitle );
+		if ( array_key_exists( 0, $values ) == false ) {
+			$res = $values;
+		} elseif ( $mappingType !== null ) {
+			$res = self::getMappedValues( $values, $mappingType, $args, $wgPageFormsUseDisplayTitle );
+		} else {
+			$res = [];
+			foreach ( $values as $key => $value ) {
+				$res[$value] = $value;
+			}
+		}
+		return $res;
+	}
+
+	/** 
+	 * Return named array of mapped values
+	 * Static version of PF_FormField::setMappedValues
+	 * @param array $values
+	 * @param string $mappingType
+	 * @param array $args
+	 * @param bool $useDisplayTitle
+	 * @return array
+	 */
+	public static function getMappedValues( 
+		array $values,
+		string $mappingType,
+		array $args,
+		bool $useDisplayTitle
+		) {
+		switch( $mappingType ) {
+			case 'mapping property':
+				$mappingProperty = $args['mapping property'];
+				$mappedValues = self::getValuesWithMappingProperty( $values, $mappingProperty );
+				break;
+			case 'mapping template':
+				$mappingTemplate = $args['mapping template'];
+				$mappedValues = self::getValuesWithMappingTemplate( $values, $mappingTemplate );
+				break;
+			case 'mapping cargo field':
+				$mappingCargoField = isset( $args['mapping cargo field'] ) ? $args['mapping cargo field'] : null;
+				$mappingCargoValueField = isset( $args['mapping cargo value field'] ) ? $args['mapping cargo value field'] : null;
+				$mappingCargoTable = $args['mapping cargo table'];
+				$mappedValues = self::getValuesWithMappingCargoField( $values, $mappingCargoField, $mappingCargoValueField, $mappingCargoTable, $useDisplayTitle );
+				break;
+			case 'mapping using translate':
+				// @todo - not ready yet
+				$value_labels = $args['value_labels']; //array
+				$translateMapping = $args[ 'mapping using translate' ];
+				$mappedValues = self::getValuesWithTranslateMapping( $values, $value_labels, $translateMapping );
+				break;
+			case 'displaytitle':
+				$isReverseLookup = ( array_key_exists( 'reverselookup', $args ) && $args['reverselookup'] == 'true' ) ? true : false;
+				$mappedValues = self::getLabelsFromDisplayTitle( $values, $isReverseLookup ); 
+				// @todo - why just array_values ?
+				break;
+		}
+		$res = ( $mappedValues !== null ) ? self::disambiguateLabels( $mappedValues ) : [];
+		return $res;
+	}
+
+	/**
+	 * Helper function to get a named array of labels from an array of 
+	 * values given a mapping property.
+	 * Originally in PF_FormField
+	 * @param array $values - sequentual array e.g. [0] => Id:Mag Airne, [1] => Id:Mag Arnaide, etc.
+	 * @param string $propertyName
+	 * @return array
+	 **/
+	public static function getValuesWithMappingProperty( 
+		array $values,
+		string $propertyName
+	): array {
+		$store = PFUtils::getSMWStore();
+		if ( $store == null || empty( $values )  ) {
+			return [];
+		}
+		$res = [];
+		foreach ( $values as $index => $value ) {
+			// @todo - does this make sense?
+			//if ( $useDisplayTitle ) {
+			//	$value = $index; 
+			//}
+			$subject = Title::newFromText( $value );
+			if ( $subject != null ) {
+				$vals = PFValuesUtils::getSMWPropertyValues( $store, $subject, $propertyName );
+				if ( count( $vals ) > 0 ) {
+					$res[$value] = trim( $vals[0] );
+				} else {
+					// @todo - make this optional
+					$label = self::removeNSPrefixFromLabel( trim($value) );
+					$res[$value] = $label;
+				}
+			} else {
+				$res[$value] = $value;
+			}
+		}
+		return $res;
+	}
+
+	/**
+	 * Helper function to get an array of labels from an array of values
+	 * given a mapping template.
+	 * @param array $values
+	 * @param string $mappingTemplate
+	 * @param bool $useDisplayTitle
+	 * @return array
+	 */
+	public static function getValuesWithMappingTemplate( 
+		array $values, 
+		string $mappingTemplate,
+		bool $useDisplayTitle = false //@todo - remove?
+	): array {
+		$title = Title::makeTitleSafe( NS_TEMPLATE, $mappingTemplate );
+		$templateExists = $title->exists();
+		$res = [];
+		foreach ( $values as $index => $value ) {
+			//if ( $useDisplayTitle ) {
+			//	$value = $index;
+			//}
+			if ( $templateExists ) {
+				$label = trim( PFUtils::getParser()->recursiveTagParse( '{{' . $mappingTemplate .
+					'|' . $value . '}}' ) );
+				if ( $label == '' ) {
+					$res[$value] = $value;
+				} else {
+					$res[$value] = $label;
+				}
+			} else {
+				$res[$value] = $value;
+			}
+		}
+		return $res;
+	}
+
+	/**
+	 * Helper function to get an array of labels from an array of values
+	 * given a mapping Cargo table/field.
+	 * Derived from PFFormField::setValuesWithMappingCargoField
+	 * @param array $values
+	 * @param string|null $mappingCargoField
+	 * @param string|null $mappingCargoValueField
+	 * @param string|null $mappingCargoTable,
+	 * @param bool $useDisplayTitle 
+	 * @return array
+	 */
+	public static function getValuesWithMappingCargoField( 
+		$values, 
+		$mappingCargoField,
+		$mappingCargoValueField,
+		$mappingCargoTable,
+		bool $useDisplayTitle = false
+	) {
+		$labels = [];
+		foreach ( $values as $index => $value ) {
+			// @todo - does this make sense?
+			if ( $useDisplayTitle ) {
+				$value = $index;
+			}
+			$labels[$value] = $value;
+			// @todo - check if this works
+			if ( $mappingCargoValueField !== null ) {
+				$valueField = $mappingCargoValueField;
+			} else {
+				$valueField = '_pageName';
+			}
+			$vals = PFValuesUtils::getValuesForCargoField(
+				$mappingCargoTable,
+				$mappingCargoField,
+				$valueField . '="' . $value . '"'
+			);
+			if ( count( $vals ) > 0 ) {
+				$labels[$value] = html_entity_decode( trim( $vals[0] ) );
+			}
+		}
+		return $labels;
+	}
+
+	/**
+	 * @todo: just a placeholder
+	 * @return array
+	 */
+	public static function getValuesWithTranslateMapping( 
+		array $values, 
+		array $value_labels, 
+		string $translateMapping 
+	) {
+		$res = [];
+		foreach ( $values as $index => $value ) {
+			if ( array_key_exists( $value, $value_labels ) ) {
+				$label = $parser->recursiveTagParse( '{{int:' . $translateMapping . $index . '}}' );
+				// ? cf. $label = $value_labels[$value] = ;
+			} else {
+				$label = $value;
+			}
+			$res[$index] = $value;
+			$res[$value] = $label;
+		}
+		return $res;
+	}
+
+	/**
+	 * Get a named array of display titles - Your1
+	 *
+	 * @param array $values = pagenames
+	 * @param bool $doReverseLookup
+	 * @return array 
+	 */
+	public static function getLabelsFromDisplayTitle( 
+		array $values, 
+		bool $doReverseLookup = false 
+	) {
+		$labels = [];
+		foreach ( $values as $value ) {
+			if ( trim( $value ) === "" ) {
+				continue;
+			}
+			if ( $doReverseLookup ) {
+				// The regex matches every 'real' page inside the last brackets; for example
+				//  'Privacy (doel) (Privacy (doel)concept)',
+				//  'Pagina (doel) (Pagina)',
+				// will match on (Privacy (doel)concept), (Pagina), ect
+				if ( !preg_match_all( '/\((?:[^)(]*(?R)?)*+\)/', $value, $matches ) ) {
+					$title = Title::newFromText( $value );
+					// @todo : maybe $title instanceof Title && ...?
+					if ( $title && $title->exists() ) {
+						$labels[ $value ] = $value;
+					}
+					// If no matches where found, just leave the value as is
+					continue;
+				} else {
+					$firstMatch = reset( $matches );
+					// The actual match is always in the last group
+					$realPage = end( $firstMatch );
+					// The match still contains the first ( and last ) character, remove them
+					$realPage = substr( $realPage, 1 );
+					// Finally set the actual value
+					$value = substr( $realPage, 0, -1 );
+				}
+			}
+			$titleInstance = Title::newFromText( $value );
+			// If the title is invalid, just leave the value as is
+			if ( $titleInstance === null ) {
+				continue;
+			}
+			$displayTitle = self::getDisplayTitles( [ $titleInstance ] );
+			$displayTitle = reset( $displayTitle );
+			$labels[ $value ] = ( $displayTitle && strtolower( trim( $displayTitle ) ) !== trim( strtolower( $value ) ) )
+				? $displayTitle . " ($value)"
+				: $value;
+		}
+		return $labels;
+	}
+
+	/**
+	 * Returns pages each with their display title as the value.
+	 * @param array $titlesUnfiltered
+	 * @return array
+	 */
+	public static function getDisplayTitles( 
+		array $titlesUnfiltered 
+	) {
+		$pages = $titles = [];
+		foreach ( $titlesUnfiltered as $k => $title ) {
+			if ( $title instanceof Title ) {
+				$titles[ $k ] = $title;
+			}
+		}
+		$services = MediaWikiServices::getInstance();
+		if ( method_exists( $services, 'getPageProps' ) ) {
+			// MW 1.36+
+			$pageProps = $services->getPageProps();
+		} else {
+			$pageProps = PageProps::getInstance();
+		}
+		$properties = $pageProps->getProperties( $titles, [ 'displaytitle', 'defaultsort' ] );
+		foreach ( $titles as $title ) {
+			if ( array_key_exists( $title->getArticleID(), $properties ) ) {
+				$titleprops = $properties[$title->getArticleID()];
+			} else {
+				$titleprops = [];
+			}
+			$titleText = $title->getPrefixedText();
+			if ( array_key_exists( 'displaytitle', $titleprops ) &&
+				trim( str_replace( '&#160;', '', strip_tags( $titleprops['displaytitle'] ) ) ) !== '' ) {
+				$pages[$titleText] = htmlspecialchars_decode( $titleprops['displaytitle'] );
+			} else {
+				$pages[$titleText] = $titleText;
+			}
+		}
+		return $pages;
+	}
+
+	/**
+	 * Remove namespace prefix (if any) from label
+	 * @param string $label
+	 * @return string
+	 */
+	private static function removeNSPrefixFromLabel( string $label ) {
+		$labelArr = explode( ':',  trim( $label ) );
+		if ( count( $labelArr ) > 1 ) {
+			$prefix = array_shift( $labelArr );
+			$res = implode( ':', $labelArr);
+		} else {
+			$res = $label;
+		}
+		return $res;
+	}
+
+	/**
+	 * Doing "mapping" on values can potentially lead to more than one
+	 * value having the same "label". To avoid this, we find duplicate
+	 * labels, if there are any, add on the real value, in parentheses,
+	 * to all of them.
+	 *
+	 * @param array $labels
+	 * @return array
+	 */
+	public static function disambiguateLabels( array $labels ) {
+		asort( $labels );
+		if ( count( $labels ) == count( array_unique( $labels ) ) ) {
+			return $labels;
+		}
+		$fixed_labels = [];
+		foreach ( $labels as $value => $label ) {
+			$fixed_labels[$value] = $labels[$value];
+		}
+		$counts = array_count_values( $fixed_labels );
+		foreach ( $counts as $current_label => $count ) {
+			if ( $count > 1 ) {
+				$matching_keys = array_keys( $labels, $current_label );
+				foreach ( $matching_keys as $key ) {
+					$fixed_labels[$key] .= ' (' . $key . ')';
+				}
+			}
+		}
+		if ( count( $fixed_labels ) == count( array_unique( $fixed_labels ) ) ) {
+			return $fixed_labels;
+		}
+		// If that didn't work, just add on " (value)" to *all* the
+		// labels. @TODO - is this necessary?
+		foreach ( $labels as $value => $label ) {
+			$labels[$value] .= ' (' . $value . ')';
+		}
+		return $labels;
+	}
+}
