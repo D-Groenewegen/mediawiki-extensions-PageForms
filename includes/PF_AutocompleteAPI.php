@@ -44,39 +44,50 @@ class PFAutocompleteAPI extends ApiBase {
 		}
 
 		global $wgPageFormsUseDisplayTitle;
-		$map = false;
+		$map = false; //default
+		$mapArgs = [];
+		if ( $mappingProperty !== null ) {
+			$mapArgs['mapping property'] = $mappingProperty;
+		} elseif ( $mappingTemplate !== null ) {
+			$mapArgs['mapping template'] = $mappingTemplate;
+		}
+		$mappingType = PFMappingUtils::getMappingType( $mapArgs, $wgPageFormsUseDisplayTitle );
+
 		if ( $baseprop !== null ) {
 			if ( $property !== null ) {
 				$data = $this->getAllValuesForProperty( $property, null, $baseprop, $basevalue );
 			}
 		} elseif ( $property !== null ) {
-			$data = $this->getAllValuesForProperty( $property, $substr );
+			if ( $mappingProperty == null ) {
+				$pages = $this->getAllValuesForProperty( $property, $substr );
+			} else {
+				$pages = PFValuesUtils::getAllMappedPagesForPropertyRemotely( $property, $substr, $mappingProperty );
+			}
+			$data = PFMappingUtils::getMappedValues( $pages, $mappingType, $mapArgs,$wgPageFormsUseDisplayTitle );
+			$map = ( $mappingType !== null ) ? true : false;
 		} elseif ( $wikidata !== null ) {
 			$data = PFValuesUtils::getAllValuesFromWikidata( urlencode( $wikidata ), $substr );
 		} elseif ( $category !== null ) {
+			// @todo - untested
 			$data = PFValuesUtils::getAllPagesForCategory( $category, 3, $substr );
-			$map = $wgPageFormsUseDisplayTitle;
-			if ( $map ) {
-				$data = PFValuesUtils::disambiguateLabels( $data );
-			}
+			$data = PFMappingUtils::getMappedValues( $pages, $mappingType, $mapArgs,$wgPageFormsUseDisplayTitle );
+			$map = ( $mappingType !== null ) ? true : false; 
 		} elseif ( $concept !== null ) {
-			$data = PFValuesUtils::getAllPagesForConcept( $concept, $substr );
-			$map = $wgPageFormsUseDisplayTitle;
-			if ( $map ) {
-				$data = PFValuesUtils::disambiguateLabels( $data );
-			}
+			$pages = PFValuesUtils::getAllPagesForConceptRemotely( $concept, $substr, $mappingProperty, $wgPageFormsUseDisplayTitle );
+			$data = PFMappingUtils::getMappedValues( $pages, $mappingType, $mapArgs,$wgPageFormsUseDisplayTitle );
+			$map = ( $mappingType !== null ) ? true : false; 
 		} elseif ( $query !== null ) {
 			$query = $this->processSemanticQuery( $query, $substr );
-			$data = PFValuesUtils::getAllPagesForQuery( $query );
-			$map = $wgPageFormsUseDisplayTitle;
-			if ( $map ) {
-				$data = PFValuesUtils::disambiguateLabels( $data );
-			}
+			$pages = PFValuesUtils::getAllPagesForQuery( $query ); 
+			$data = PFMappingUtils::getMappedValues( $pages, $mappingType, $mapArgs, $wgPageFormsUseDisplayTitle );
+			$map = ( $mappingType !== null ) ? true : false; 
 		} elseif ( $cargo_table !== null && $cargo_field !== null ) {
 			$data = self::getAllValuesForCargoField( $cargo_table, $cargo_field, $cargo_where, $substr, $base_cargo_table, $base_cargo_field, $basevalue );
 		} elseif ( $namespace !== null ) {
-			$data = PFValuesUtils::getAllPagesForNamespace( $namespace, $substr );
-			$map = $wgPageFormsUseDisplayTitle;
+			// @todo - untested
+			$pages = PFValuesUtils::getAllPagesForNamespace( $namespace, $substr );
+			$data = PFMappingUtils::getMappedValues( $pages, $mappingType, $mapArgs, $wgPageFormsUseDisplayTitle );
+			$map = ( $mappingType !== null ) ? true : false;
 		} elseif ( $external_url !== null ) {
 			$data = PFValuesUtils::getValuesFromExternalURL( $external_url, $substr );
 		} else {
@@ -283,6 +294,7 @@ class PFAutocompleteAPI extends ApiBase {
 		$conditions = [ 'p_ids.smw_title' => $property_name ];
 		if ( $propertyHasTypePage ) {
 			$valueField = 'o_ids.smw_title';
+			$valueNamespace = 'o_ids.smw_namespace';
 			if ( $smwgDefaultStore === 'SMWSQLStore2' ) {
 				$idsTable = $db->tableName( 'smw_ids' );
 				$propsTable = $db->tableName( 'smw_rels2' );
@@ -352,12 +364,20 @@ class PFAutocompleteAPI extends ApiBase {
 		}
 
 		$sqlOptions['ORDER BY'] = $valueField;
-		$res = $db->select( $fromClause, "DISTINCT $valueField",
-			$conditions, __METHOD__, $sqlOptions );
+		$sqlRequest = ( isset( $valueNamespace ) && $valueNamespace !== null ) 
+			? "DISTINCT $valueField, $valueNamespace" 
+			: "DISTINCT $valueField";
+		$res = $db->select( $fromClause, $sqlRequest, $conditions, __METHOD__, $sqlOptions );
 
 		$values = [];
 		while ( $row = $res->fetchRow() ) {
-			$values[] = str_replace( '_', ' ', $row[0] );
+			$pagename = str_replace( '_', ' ', $row[0] );
+			if ( isset( $valueNamespace ) && $row[1] !== '0' ) {
+				$ns = PFUtils::getCanonicalName( $row[1] );
+				$values[] = $ns . ":" . $pagename;
+			} else {
+				$values[] = $pagename;
+			}
 		}
 		$res->free();
 		$values = self::shiftExactMatch( $substring, $values );
@@ -491,7 +511,8 @@ class PFAutocompleteAPI extends ApiBase {
 			$havingStr = null,
 			$cargoField,
 			PFValuesUtils::getMaxValuesToRetrieve( $substring ),
-			$offsetStr = 0
+			$offsetStr = 0,
+			true
 		);
 		$queryResults = $sqlQuery->run();
 
