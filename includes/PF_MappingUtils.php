@@ -118,20 +118,25 @@ class PFMappingUtils {
 		array $args = [], 
 		bool $form_submitted = false
 	) {
-		$valueString = trim( $valueString );
-		$possibleValues = $args['possible_values'];
-		$valMax = PFValuesUtils::getMaxValuesToRetrieve();
-		if ( strlen( $valueString ) === 0 || $possibleValues === null ) {
-			return [ $valueString ];
-		}
+        if ( $valueString == null ) {
+            return [];
+        } else {
+            $valueString = trim( $valueString );
+            $possibleValues = $args['possible_values'];
+            if ( strlen( $valueString ) === 0 || $possibleValues === null ) {
+                return [ $valueString ];
+            }
+        }
 		if ( $delimiter !== null ) {
 			$values = array_map( 'trim', explode( $delimiter, $valueString ) );
 		} else {
 			$values = [ $valueString ];
 		}
+        
 		$labels = [];
 		// Remote autocompletion? Don't try mapping 
 		// current to possible values
+        $valMax = PFValuesUtils::getMaxValuesToRetrieve();
 		$mode = ( $form_submitted && count( $possibleValues ) >= $valMax ) ? 'remote' : 'local'; 
 		if ( $mode == 'local' ) {
 			foreach ( $values as $value ) {
