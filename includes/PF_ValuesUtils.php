@@ -280,8 +280,7 @@ SERVICE wikibase:label { bd:serviceParam wikibase:language \"" . $wgLanguageCode
 		$top_category = str_replace( ' ', '_', $top_category );
 		$categories = [ $top_category ];
 		$checkcategories = [ $top_category ];
-		$pages = [];
-		$sortkeys = [];
+		$pages = $sortkeys = [];
 		for ( $level = $num_levels; $level > 0; $level-- ) {
 			$newcategories = [];
 			foreach ( $checkcategories as $category ) {
@@ -906,7 +905,7 @@ SERVICE wikibase:label { bd:serviceParam wikibase:language \"" . $wgLanguageCode
 	 */
 	public static function getAllPagesForQuery( $rawQuery ) {
 		global $wgPageFormsUseDisplayTitle;
-		$rawQueryArray = [ $rawQuery ];
+		$rawQueryArray = explode( "|", $rawQuery );
 		list( $queryString, $processedParams, $printouts ) = SMWQueryProcessor::getComponentsFromFunctionParams( $rawQueryArray, false );
 		SMWQueryProcessor::addThisPrintout( $printouts, $processedParams );
 		$processedParams = SMWQueryProcessor::getProcessedParams( $processedParams, $printouts );
@@ -919,7 +918,7 @@ SERVICE wikibase:label { bd:serviceParam wikibase:language \"" . $wgLanguageCode
 		$pages = [];
 
 		foreach ( $rows as $diWikiPage ) {
-			$titles[] = $diWikiPage->getTitle();
+			$titles[] = $pages[] = $diWikiPage->getTitle();
 		}
 
 		if ( $wgPageFormsUseDisplayTitle ) {
@@ -972,44 +971,6 @@ SERVICE wikibase:label { bd:serviceParam wikibase:language \"" . $wgLanguageCode
 	}
 
 	/**
-	 * Doing "mapping" on values can potentially lead to more than one
-	 * value having the same "label". To avoid this, we find duplicate
-	 * labels, if there are any, add on the real value, in parentheses,
-	 * to all of them.
-	 *
-	 * @param array $labels
-	 * @return array
-	 */
-	public static function disambiguateLabels( array $labels ) {
-		asort( $labels );
-		if ( count( $labels ) == count( array_unique( $labels ) ) ) {
-			return $labels;
-		}
-		$fixed_labels = [];
-		foreach ( $labels as $value => $label ) {
-			$fixed_labels[$value] = $labels[$value];
-		}
-		$counts = array_count_values( $fixed_labels );
-		foreach ( $counts as $current_label => $count ) {
-			if ( $count > 1 ) {
-				$matching_keys = array_keys( $labels, $current_label );
-				foreach ( $matching_keys as $key ) {
-					$fixed_labels[$key] .= ' (' . $key . ')';
-				}
-			}
-		}
-		if ( count( $fixed_labels ) == count( array_unique( $fixed_labels ) ) ) {
-			return $fixed_labels;
-		}
-		// If that didn't work, just add on " (value)" to *all* the
-		// labels. @TODO - is this necessary?
-		foreach ( $labels as $value => $label ) {
-			$labels[$value] .= ' (' . $value . ')';
-		}
-		return $labels;
-	}
-
-	/**
 	 * Get the exact canonical namespace string, given a user-created string
 	 *
 	 * @param string $namespaceStr
@@ -1045,4 +1006,20 @@ SERVICE wikibase:label { bd:serviceParam wikibase:language \"" . $wgLanguageCode
 		array_unshift( $values, $shortestString );
 		return $values;
 	}
+
+	/**
+	 * Map a label back to a value.
+	 * @param string $label
+	 * @return string
+	 */
+	function labelToValue( $label ) {
+		$value = array_search( $label, $this->mPossibleValues );
+		if ( $value === false ) {
+			return $label;
+		} else {
+			return $value;
+		}
+	}
+
+	
 }

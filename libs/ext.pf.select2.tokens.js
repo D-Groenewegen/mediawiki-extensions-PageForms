@@ -93,6 +93,7 @@
 			}
 		});
 
+		// Creates token when option is selected
 		// Make sure that entries added with "local autocompletion"
 		// show up in the order they were entered, not alphabetical
 		// order.
@@ -158,19 +159,35 @@
 				if ( $target.is( $("span.select2-match-entire") ) ) {
 					$target = $target.parent();
 				}
-				// get the text and id of the clicked value
+				// get the text, label and id of the clicked value
+				// clickedValue may contain pagename, but results are unreliable
 				var targetData = $target.data();
-				var clickedValue = $target[0].title;
 				var clickedValueId = targetData.select2Id;
+				var clickedValue = $target[0].title; 
+				var clickedLabel = $target[0].children[1].textContent;
+				// get current selection
+				var curVals = inputData.val();
+				var curLabelVals = $input.attr( "value" );
 
 				// remove that value from select2 selection
-				var newValue = $.grep(inputData.val(), function (value) {
+				inputData.$container.find(".select2-selection__choice").map( function() {
+					var selectedLabel = $(this).find(".select2-match-entire").text();
+					if ( selectedLabel !== clickedLabel ) {
+						return $(this);
+					} else {
+						$(this).remove();
+					}
+        		}).trigger("change");
+
+				/* Legacy method for reference
+				var newValue = $.grep( curVals, function (value) {
 					return value !== clickedValue;
 				});
 				$input.val(newValue).trigger("change");
+				*/
 
-				// set the currently entered text to equal the clicked value
-				inputData.$container.find(".select2-search__field").val(clickedValue).trigger("input").focus();
+				// set the currently entered label to equal the clicked label
+				inputData.$container.find(".select2-search__field").val(clickedLabel).trigger("input").focus();
 			} );
 		}
 		var $loadingIcon = $( '<img src = "' + mw.config.get( 'wgPageFormsScriptPath' ) + '/skins/loading.gif'
@@ -260,6 +277,12 @@
 			opts.language.maximumSelected = function() {
 				return mw.msg( "pf-autocomplete-selection-too-big", maxvalues );
 			};
+		}
+		// Mapping types with remote autocompletion
+		if ( $(input_id).attr( "mappingproperty" ) !== undefined ) {
+			opts.mappingproperty = $(input_id).attr( "mappingproperty" );
+		} else if ( $(input_id).attr( "mappingtemplate" ) !== undefined ) {
+			opts.mappingtemplate = $(input_id).attr( "mappingtemplate" );
 		}
 		// opts.selectOnClose = true;
 		opts.adaptContainerCssClass = function( clazz ) {
@@ -390,9 +413,14 @@
 				my_server += '&cargo_where=' + table_and_field[2];
 			}
 		} else {
-			my_server += "?action=pfautocomplete&format=json&" +
-				autocomplete_opts.autocompletedatatype + "=" +
-				encodeURIComponent( data_source );
+			var autocomplete_param = autocomplete_type + "=" + encodeURIComponent( data_source );
+			var mapping_param = '';
+			if ( autocomplete_opts.mappingproperty !== undefined ) {
+				var mapping_param = '&mappingproperty=' + encodeURIComponent( autocomplete_opts.mappingproperty );
+			} else if ( autocomplete_opts.mappingtemplate !== undefined ) {
+				var mapping_param = '&mappingtemplate=' + encodeURIComponent( autocomplete_opts.mappingtemplate );
+			}
+			my_server += "?action=pfautocomplete&format=json&" + autocomplete_param + mapping_param;
 		}
 
 		var ajaxOpts = {

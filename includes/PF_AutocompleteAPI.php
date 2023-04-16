@@ -36,6 +36,8 @@ class PFAutocompleteAPI extends ApiBase {
 		$base_cargo_field = $params['base_cargo_field'];
 		$basevalue = $params['basevalue'];
 		// $limit = $params['limit'];
+		$mappingProperty = $params['mappingproperty'];
+		$mappingTemplate = $params['mappingtemplate'];
 
 		if ( $baseprop === null && $base_cargo_table === null && strlen( $substr ) == 0 ) {
 			$this->dieWithError( [ 'apierror-missingparam', 'substr' ], 'param_substr' );
@@ -110,14 +112,7 @@ class PFAutocompleteAPI extends ApiBase {
 		// for "values from url", where the data is already formatted
 		// correctly.
 		if ( $external_url === null ) {
-			$formattedData = [];
-			foreach ( $data as $index => $value ) {
-				if ( $map ) {
-					$formattedData[] = [ 'title' => $index, 'displaytitle' => $value ];
-				} else {
-					$formattedData[] = [ 'title' => $value ];
-				}
-			}
+			$formattedData = self::formatDataForAPI( $data, $map );
 		} else {
 			$formattedData = $data;
 		}
@@ -126,6 +121,29 @@ class PFAutocompleteAPI extends ApiBase {
 		$result = $this->getResult();
 		$result->setIndexedTagName( $formattedData, 'p' );
 		$result->addValue( null, $this->getModuleName(), $formattedData );
+	}
+
+	/**
+	 * @param array $data
+	 * @param bool $map
+	 * @return array
+	 */
+	private static function formatDataForAPI( $data, bool $map ) {
+		$formattedData = [];
+		foreach ( $data as $index => $value ) {
+			if ( $map ) {
+				$formattedData[] = [ 
+					'title' => $index, 
+					'displaytitle' => $value
+				 ];
+			} else {
+				$formattedData[] = [ 
+					'title' => $value,
+					'displaytitle' => $value
+				];
+			}
+		}
+		return $formattedData;
 	}
 
 	protected function getAllowedParams() {
@@ -152,6 +170,8 @@ class PFAutocompleteAPI extends ApiBase {
 			'base_cargo_table' => null,
 			'base_cargo_field' => null,
 			'basevalue' => null,
+			'mappingproperty' => null,
+			'mappingtemplate' => null,
 		];
 	}
 
@@ -168,6 +188,8 @@ class PFAutocompleteAPI extends ApiBase {
 			'baseprop' => 'A previous property in the form to check against',
 			'basevalue' => 'The value to check for the previous property',
 			// 'limit' => 'Limit how many entries to return',
+			'mappingproperty' => 'The property used to map values',
+			'mappingtemplate' => 'The template used to map values',
 		];
 	}
 
@@ -181,6 +203,7 @@ class PFAutocompleteAPI extends ApiBase {
 			'api.php?action=pfautocomplete&substr=te&property=Has_author',
 			'api.php?action=pfautocomplete&substr=te&category=Authors',
 			'api.php?action=pfautocomplete&semantic_query=((Category:Test)) ((MyProperty::Something))',
+			'api.php?action=pfautocomplete&substr=te&concept=Test&mappingproperty=Display_title_for'
 		];
 	}
 

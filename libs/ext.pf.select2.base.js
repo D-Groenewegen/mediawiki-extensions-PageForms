@@ -224,6 +224,9 @@
 
 			autocomplete_opts.autocompletedatatype = $(input_id).attr( "autocompletedatatype" );
 			autocomplete_opts.autocompletesettings = $(input_id).attr( "autocompletesettings" );
+			if ( $(input_id).attr('mappingproperty') !== undefined ) {
+				autocomplete_opts.mappingproperty = $(input_id).attr( "mappingproperty" );
+			}
 			return autocomplete_opts;
 		},
 
