@@ -23,6 +23,7 @@ class PFMappingUtils {
 			$mappingType = 'mapping template';
 		} elseif ( array_key_exists( 'mapping cargo table', $args ) &&
 		array_key_exists( 'mapping cargo field', $args ) ) {
+            // @todo: or 'cargo field'? 
 			$mappingType = 'mapping cargo field';
 		} elseif ( array_key_exists( 'value_labels', $args ) &&
 			is_array( $args['value_labels'] ) ) {
@@ -132,7 +133,7 @@ class PFMappingUtils {
 		} else {
 			$values = [ $valueString ];
 		}
-        
+
 		$labels = [];
 		// Remote autocompletion? Don't try mapping 
 		// current to possible values
