@@ -58,6 +58,10 @@ class PFAutocompleteAPI extends ApiBase {
 				$data = $this->getAllValuesForProperty( $property, null, $baseprop, $basevalue );
 			}
 		} elseif ( $property !== null ) {
+			global $smwgDefaultStore;
+			if ( $smwgDefaultStore == null ) {
+				$this->dieWithError( 'Semantic MediaWiki must be installed to query on "property"', 'param_property' );
+			}
 			if ( $mappingProperty == null ) {
 				$pages = $this->getAllValuesForProperty( $property, $substr );
 			} else {
