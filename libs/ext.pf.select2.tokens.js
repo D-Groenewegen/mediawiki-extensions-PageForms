@@ -129,6 +129,7 @@
 			if( existingValuesOnly ){
 				return ;
 			}
+			// tab
 			if( e.keyCode === 9 ){
 				var rawValue = "";
 				var checkIfPresent = false;
@@ -248,10 +249,7 @@
 				var htmlElements = inputData.$selection[0].children[0].children;
 				term = htmlElements[htmlElements.length - 1].children[0].value;
 			}
-			return pf.select2.base.prototype.textHighlight( result.id, term );
-		};
-		opts.templateSelection = function( result ) {
-			return $('<span>' + result.text + '</span>');
+			return pf.select2.base.prototype.textHighlight( result.text, term );
 		};
 		opts.language.searching = function() {
 			return mw.msg( "pf-autocomplete-searching" );
