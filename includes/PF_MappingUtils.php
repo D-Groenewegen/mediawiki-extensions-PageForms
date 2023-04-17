@@ -14,7 +14,7 @@ class PFMappingUtils {
 	 * @param bool $useDisplayTitle
 	 * @return string|null
 	 */
-	public static function getMappngType ( array $args, bool $useDisplayTitle = false ) {
+	public static function getMappingType( array $args, bool $useDisplayTitle = false ) {
 		$mappingType = null;
 		if ( array_key_exists( 'mapping property', $args ) ) {
 			$mappingType = 'mapping property';
@@ -43,7 +43,8 @@ class PFMappingUtils {
 	public static function getMappedValuesForInput( array $values, array $args = [] ) {
 		global $wgPageFormsUseDisplayTitle;
 		$mappingType = self::getMappingType( $args, $wgPageFormsUseDisplayTitle );
-		if ( array_key_exists( 0, $values ) == false ) {
+		if ( !array_key_exists( 0, $values ) ) {
+            //already named, return as-is
 			$res = $values;
 		} elseif ( $mappingType !== null ) {
 			$res = self::getMappedValues( $values, $mappingType, $args, $wgPageFormsUseDisplayTitle );
