@@ -393,6 +393,7 @@ class PFFormField {
 			$f->mUseDisplayTitle = $wgPageFormsUseDisplayTitle;
 		} elseif ( in_array( $valuesSourceType, [ 'property' ] ) ) {
 			// @todo: Only if properties are of type Page
+			global $wgPageFormsUseDisplayTitle;
 			$f->mUseDisplayTitle = $wgPageFormsUseDisplayTitle;
 		} else {
 			// No displaytitle for values, values from property, 
@@ -728,39 +729,6 @@ class PFFormField {
 			return $label;
 		} else {
 			return $value;
-		}
-	}
-
-	/**
-	 * Map a template field value into labels.
-	 * @param string $valueString
-	 * @param string $delimiter
-	 * @return string|string[]
-	 */
-	public function valueStringToLabels( $valueString, $delimiter ) {
-		if ( strlen( trim( $valueString ) ) === 0 ||
-			$this->mPossibleValues === null ) {
-			return $valueString;
-		}
-		if ( $delimiter !== null ) {
-			$values = array_map( 'trim', explode( $delimiter, $valueString ) );
-		} else {
-			$values = [ $valueString ];
-		}
-		$labels = [];
-		foreach ( $values as $value ) {
-			if ( $value != '' ) {
-				if ( array_key_exists( $value, $this->mPossibleValues ) ) {
-					$labels[] = $this->mPossibleValues[$value];
-				} else {
-					$labels[] = $value;
-				}
-			}
-		}
-		if ( count( $labels ) > 1 ) {
-			return $labels;
-		} else {
-			return $labels[0];
 		}
 	}
 

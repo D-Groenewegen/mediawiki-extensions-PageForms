@@ -1299,17 +1299,28 @@ END;
 							$form_field->hasFieldArg( 'mapping property' ) ||
 							( $form_field->hasFieldArg( 'mapping cargo table' ) &&
 							$form_field->hasFieldArg( 'mapping cargo field' ) ) ||
-							$form_field->getUseDisplayTitle() ) ) {
+							$form_field->getUseDisplayTitle() ) 
+						) {
+							// @todo - Wrap this next section into separate function
+							if ( $form_field->isList() ) {
+								$delimiter = $form_field->getFieldArg( 'delimiter' );
+							} else {
+								$delimiter = null;
+							}
+							$inputType = $form_field->getInputType();
 							// If the input type is "tokens', the value is not
 							// an array, but the delimiter still needs to be set.
-							if ( !is_array( $cur_value ) ) {
-								if ( $form_field->isList() ) {
-									$delimiter = $form_field->getFieldArg( 'delimiter' );
-								} else {
-									$delimiter = null;
-								}
+							if ( $inputType == 'tokens' ) {
+								// Don't turn current values into labels just yet
+								$cur_value = PFValuesUtils::getValuesArray( $cur_value, $delimiter );
+							} else {
+								// @todo: improve support for combobox, listbox ?
+								$cur_value_str = PFValuesUtils::getValuesString( $cur_value, $delimiter );
+								$poss_vals = $form_field->getPossibleValues();
+								$cur_value_arr = PFMappingUtils::valueStringToLabels( $cur_value_str, $delimiter, $form_field->getFieldArgs(), $form_submitted );
+								// Sequential array back to string :
+								$cur_value = PFValuesUtils::getValuesString( $cur_value_arr, $delimiter );
 							}
-							$cur_value = $form_field->valueStringToLabels( $cur_value, $delimiter );
 						}
 
 						// Call hooks - unfortunately this has to be split into two

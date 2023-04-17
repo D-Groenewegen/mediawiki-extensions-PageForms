@@ -124,7 +124,9 @@ class PFMappingUtils {
             return [];
         } else {
             $valueString = trim( $valueString );
-            $possibleValues = $args['possible_values'];
+            $possibleValues = ( array_key_exists( 'possible_values', $args ) )
+                ? $args['possible_values'] 
+                : null;
             if ( strlen( $valueString ) === 0 || $possibleValues === null ) {
                 return [ $valueString ];
             }

@@ -27,6 +27,14 @@ class PFComboBoxInput extends PFFormInput {
 		return [ 'String' ];
 	}
 
+	/**
+	 * @param string $cur_value
+	 * @param string $input_name
+	 * @param bool $is_mandatory
+	 * @param bool $is_disabled
+	 * @param array $other_args
+	 * @return string
+	 */
 	public static function getHTML( $cur_value, $input_name, $is_mandatory, $is_disabled, array $other_args ) {
 		global $wgPageFormsTabIndex, $wgPageFormsFieldNum, $wgPageFormsEDSettings;
 

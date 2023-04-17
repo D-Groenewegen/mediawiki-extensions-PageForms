@@ -63,10 +63,31 @@ class PFTokensInput extends PFFormInput {
 		return [ 'String' ];
 	}
 
-	public static function getHTML( $cur_value, $input_name, $is_mandatory, $is_disabled, array $other_args ) {
+	/**
+	 * @param string|array|null $cur_value
+	 * @param string $input_name
+	 * @param bool $is_mandatory
+	 * @param bool $is_disabled
+	 * @param array $other_args = [] 
+	 * @return string
+	 */
+	public static function getHTML( 
+		mixed $cur_value, 
+		string $input_name, 
+		bool $is_mandatory, 
+		bool $is_disabled, 
+		array $other_args = [] 
+	) {
 		global $wgPageFormsTabIndex, $wgPageFormsFieldNum, $wgPageFormsEDSettings;
 
 		$other_args['is_list'] = true;
+		if ( array_key_exists( 'delimiter', $other_args ) ) {
+			$delimiter = $other_args['delimiter'];
+		} else {
+			$delimiter = ',';
+		}
+		$cur_value_str = PFValuesUtils::getValuesString( $cur_value, $delimiter );
+		$cur_value_arr = $cur_values = PFValuesUtils::getValuesArray( $cur_value, $delimiter );
 
 		if ( array_key_exists( 'values from external data', $other_args ) ) {
 			$autocompleteSettings = 'external data';
@@ -101,17 +122,8 @@ class PFTokensInput extends PFFormInput {
 			if ( array_key_exists( 'description', $other_args ) ) {
 				$wgPageFormsEDSettings[$name]['description'] = $other_args['description'];
 			}
-			if ( array_key_exists( 'delimiter', $other_args ) ) {
-				$delimiter = $other_args['delimiter'];
-			} else {
-				$delimiter = ',';
-			}
 		} else {
 			list( $autocompleteSettings, $remoteDataType, $delimiter ) = PFValuesUtils::setAutocompleteValues( $other_args, true );
-		}
-
-		if ( is_array( $cur_value ) ) {
-			$cur_value = implode( $delimiter, $cur_value );
 		}
 
 		$className = 'pfTokens ';
@@ -136,7 +148,7 @@ class PFTokensInput extends PFFormInput {
 			'class' => $className,
 			'style' => 'width:' . $size * 6 . 'px',
 			'multiple' => 'multiple',
-			'value' => $cur_value,
+			'value' => $cur_value_str,
 			'size' => 1,
 			'data-size' => $size * 6 . 'px',
 			'tabindex' => $wgPageFormsTabIndex,
@@ -163,50 +175,17 @@ class PFTokensInput extends PFFormInput {
 		if ( array_key_exists( 'max values', $other_args ) ) {
 			$inputAttrs['maxvalues'] = $other_args['max values'];
 		}
+		if ( array_key_exists( 'mapping property', $other_args ) ) {
+			$inputAttrs['mappingproperty'] = $other_args['mapping property'];
+		}
+		if ( array_key_exists( 'mapping template', $other_args ) ) {
+			$inputAttrs['mappingtemplate'] = $other_args['mapping template'];
+		}
 
 		// This code adds predefined tokens in the form of <options>
-
-		$cur_values = PFValuesUtils::getValuesArray( $cur_value, $delimiter );
-		$optionsText = '';
-
+		// @todo - works for pages, but what about single labels? 
 		$possible_values = $other_args['possible_values'];
-		if ( $possible_values == null ) {
-			// If it's a Boolean property, display 'Yes' and 'No'
-			// as the values.
-			if ( array_key_exists( 'property_type', $other_args ) && $other_args['property_type'] == '_boo' ) {
-				$possible_values = [
-					PFUtils::getWordForYesOrNo( true ),
-					PFUtils::getWordForYesOrNo( false ),
-				];
-			} else {
-				$possible_values = [];
-			}
-		}
-
-		foreach ( $possible_values as $possible_value ) {
-			if (
-				array_key_exists( 'value_labels', $other_args ) &&
-				is_array( $other_args['value_labels'] ) &&
-				array_key_exists( $possible_value, $other_args['value_labels'] )
-			) {
-				$optionLabel = $other_args['value_labels'][$possible_value];
-			} else {
-				$optionLabel = $possible_value;
-			}
-			$optionAttrs = [ 'value' => $possible_value ];
-			if ( in_array( $possible_value, $cur_values ) ) {
-				$optionAttrs['selected'] = 'selected';
-			}
-			$optionsText .= Html::element( 'option', $optionAttrs, $optionLabel );
-		}
-		foreach ( $cur_values as $current_value ) {
-			if ( !in_array( $current_value, $possible_values ) && $current_value !== '' ) {
-				$optionAttrs = [ 'value' => $current_value ];
-				$optionAttrs['selected'] = 'selected';
-				$optionLabel = $current_value;
-				$optionsText .= Html::element( 'option', $optionAttrs, $optionLabel );
-			}
-		}
+		$optionsText = self::createOptionsFromValues( $possible_values, $cur_values, $other_args );
 
 		$text = "\n\t" . Html::rawElement( 'select', $inputAttrs, $optionsText ) . "\n";
 		$text .= Html::hidden( $input_name . '[is_list]', 1 );
@@ -240,6 +219,114 @@ class PFTokensInput extends PFFormInput {
 		$text = "\n" . Html::rawElement( 'span', $spanAttrs, $text );
 
 		return $text;
+	}
+
+	/**
+	 * Get a named array of either pages or string values
+	 * @param array $possible_values
+	 * @param array $cur_values
+	 * @param array $other_args
+	 * @return string
+	 */
+	private static function createOptionsFromValues( 
+		$possible_values, 
+		$cur_values, 
+		$other_args = [] 
+	) {
+		/* @todo
+		$cur_value_labels = PFMappingUtils::valueStringToLabels( $cur_value_str, $delimiter, $other_args, $form_submitted ); // outputs array
+		$cur_value_labelstr = PFValuesUtils::getValuesArray( $cur_value_labels, $delimiter );
+		*/
+		$optionsText = '';
+		// Get mapped values if possible 
+		$cur_values = PFMappingUtils::getMappedValuesForInput( $cur_values, $other_args );
+		if ( $possible_values !== null ) {
+			$possible_values = PFMappingUtils::getMappedValuesForInput( $possible_values, $other_args  );
+		} else {
+			// If it's a Boolean property, display 'Yes' and 'No'
+			// as the values.
+			if ( array_key_exists( 'property_type', $other_args ) && $other_args['property_type'] == '_boo' ) {
+				$possible_values = [
+					PFUtils::getWordForYesOrNo( true ),
+					PFUtils::getWordForYesOrNo( false ),
+				];
+			} else {
+				$possible_values = [];
+			}
+		}
+		
+		// Alternative: get all current values anyway - no need to check with possibles values
+		foreach ( $cur_values as $key => $current_value ) {
+			if ( $current_value !== '' ) {
+				if (
+					array_key_exists( 'value_labels', $other_args ) &&
+					is_array( $other_args['value_labels'] ) &&
+					array_key_exists( $current_value, $other_args['value_labels'] )
+				) {
+					$optionLabel = $other_args['value_labels'][$current_value];
+				} else {
+					//$optionAttrs = [ 'value' => $current_value ];
+					$optionAttrs = [ 'value' => $key ];
+					$optionAttrs['selected'] = 'selected';
+					$optionLabel = $current_value;
+					$optionsText .= Html::element( 'option', $optionAttrs, $optionLabel );
+				}
+			} else {
+				// Current value not in list of possible values
+			}
+		}
+		// Get list of possible values but filter current values
+		foreach ( $possible_values as $key => $possible_value ) {
+			// @todo value_labels is used for Translate but see also  PFValuesUtils::getValuesWithTranslateMapping(); 
+			if ( !in_array( $possible_value, $cur_values ) ) {
+				if (
+					array_key_exists( 'value_labels', $other_args ) &&
+					is_array( $other_args['value_labels'] ) &&
+					array_key_exists( $possible_value, $other_args['value_labels'] )
+				) {
+					$optionLabel = $other_args['value_labels'][$possible_value];
+				} else {
+					$optionLabel = $possible_value;
+				}
+				//$optionAttrs = [ 'value' => $possible_value ];
+				$optionAttrs = [ 'value' => $key ];
+				$optionsText .= Html::element( 'option', $optionAttrs, $optionLabel );
+			}
+		}
+
+		/* Legacy functions
+		foreach ( $possible_values as $key => $possible_value ) {
+			if (
+				array_key_exists( 'value_labels', $other_args ) &&
+				is_array( $other_args['value_labels'] ) &&
+				array_key_exists( $possible_value, $other_args['value_labels'] )
+			) {
+				$optionLabel = $other_args['value_labels'][$possible_value];
+			} else {
+				$optionLabel = $possible_value;
+			}
+			$optionAttrs = [ 'value' => $possible_value ];
+			//$optionAttrs = [ 'value' => $key ];
+			if ( in_array( $possible_value, $cur_values ) ) {
+				$optionAttrs['selected'] = 'selected';
+			}
+			$optionsText .= Html::element( 'option', $optionAttrs, $optionLabel );
+		}
+
+		foreach ( $cur_values as $key => $current_value ) {
+			if ( !in_array( $current_value, $possible_values ) && $current_value !== '' ) {
+				$optionAttrs = [ 'value' => $current_value ];
+				//$optionAttrs = [ 'value' => $key ];
+				$optionAttrs['selected'] = 'selected';
+				$optionLabel = $current_value;
+				$optionsText .= Html::element( 'option', $optionAttrs, $optionLabel );
+			} else {
+				//@DG - cur not in list of poss, but should be selected
+			}
+		}
+		*/
+		
+		return $optionsText;
 	}
 
 	public static function getParameters() {

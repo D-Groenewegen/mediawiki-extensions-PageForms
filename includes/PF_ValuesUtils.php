@@ -890,11 +890,11 @@ SERVICE wikibase:label { bd:serviceParam wikibase:language \"" . $wgLanguageCode
 	/**
 	 * Helper function to get an array of values out of what may be either
 	 * an array or a (delimited) string
-	 * @param string[]|string $value
+	 * @param string[]|string|null $value
 	 * @param string $delimiter
 	 * @return string[]
 	 */
-	public static function getValuesArray( $value, $delimiter = null ) {
+	public static function getValuesArray( mixed $value, $delimiter = null ) {
 		$res = [];
 		if ( is_array( $value ) ) {
 			$res = $value;
@@ -905,6 +905,20 @@ SERVICE wikibase:label { bd:serviceParam wikibase:language \"" . $wgLanguageCode
 		}
 		return $res;
 	}
+
+	/* Convenience method the other way arund */
+	public static function getValuesString( mixed $value, $delimiter = null ) {
+		$res = "";
+		if ( is_string( $value ) ) {
+			$res = $value;
+		} elseif ( is_array( $value ) ) {
+			$res = ( $delimiter !== null  ) 
+				? implode( $delimiter, $value )
+				: reset( $value );
+		}
+		return trim( $res );
+	}
+
 
 	public static function getValuesFromExternalURL( $external_url_alias, $substring ) {
 		global $wgPageFormsAutocompletionURLs;
@@ -982,7 +996,7 @@ SERVICE wikibase:label { bd:serviceParam wikibase:language \"" . $wgLanguageCode
 	 */
 	public static function getAllPagesForQuery( $rawQuery ) {
 		$store = PFUtils::getSMWStore();
-		global $wgPageFormsUseDisplayTitle;
+		global $wgPageFormsMaxAutocompleteValues;
 		$rawQuery = $rawQuery . "|named args=yes|link=none|limit={$wgPageFormsMaxAutocompleteValues}|searchlabel=";
 		$rawQueryArray = explode( "|", $rawQuery );
 
