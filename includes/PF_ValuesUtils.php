@@ -584,6 +584,7 @@ SERVICE wikibase:label { bd:serviceParam wikibase:language \"" . $wgLanguageCode
 		global $wgLanguageCode, $wgPageFormsUseDisplayTitle;
 
 		$namespaceNames = explode( ',', $namespaceStr );
+		$fromMultipleNamespaces = count( $namespaceNames ) > 1;
 
 		$allNamespaces = PFUtils::getContLang()->getNamespaces();
 
@@ -635,9 +636,7 @@ SERVICE wikibase:label { bd:serviceParam wikibase:language \"" . $wgLanguageCode
 		$conditions[] = implode( ' OR ', $namespaceConditions );
 		$tables = [ 'page' ];
 		$columns = [ 'page_title' ];
-		if ( count( $namespaceNames ) > 1 ) {
-			$columns[] = 'page_namespace';
-		}
+		$columns[] = 'page_namespace';
 		if ( $wgPageFormsUseDisplayTitle ) {
 			$tables['pp_displaytitle'] = 'page_props';
 			$tables['pp_defaultsort'] = 'page_props';
@@ -681,20 +680,23 @@ SERVICE wikibase:label { bd:serviceParam wikibase:language \"" . $wgLanguageCode
 		$pages = [];
 		$sortkeys = [];
 		while ( $row = $res->fetchRow() ) {
-			// If there's more than one namespace, include the
-			// namespace prefix in the results - otherwise, don't.
+			$titleNoPrefix = str_replace( '_', ' ', $row['page_title'] );
 			if ( array_key_exists( 'page_namespace', $row ) ) {
 				$actualTitle = Title::newFromText( $row['page_title'], $row['page_namespace'] );
 				$title = $actualTitle->getPrefixedText();
 			} else {
-				$title = str_replace( '_', ' ', $row['page_title'] );
+				$title = $titleNoPrefix;
 			}
 			if ( array_key_exists( 'pp_displaytitle_value', $row ) &&
 				( $row[ 'pp_displaytitle_value' ] ) !== null &&
 				trim( str_replace( '&#160;', '', strip_tags( $row[ 'pp_displaytitle_value' ] ) ) ) !== '' ) {
 				$pages[ $title ] = htmlspecialchars_decode( $row[ 'pp_displaytitle_value'], ENT_QUOTES );
-			} else {
-				$pages[ $title ] = $title;
+			} else { 
+				// If there's more than one namespace, include the
+				// namespace prefix in the results - otherwise, don't.
+				$pages[ $title ] = ( $fromMultipleNamespaces ) 
+					? $title // with prefix
+					: $titleNoPrefix;
 			}
 			if ( array_key_exists( 'pp_defaultsort_value', $row ) &&
 				( $row[ 'pp_defaultsort_value' ] ) !== null ) {

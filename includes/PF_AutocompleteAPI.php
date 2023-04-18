@@ -72,10 +72,26 @@ class PFAutocompleteAPI extends ApiBase {
 		} elseif ( $wikidata !== null ) {
 			$data = PFValuesUtils::getAllValuesFromWikidata( urlencode( $wikidata ), $substr );
 		} elseif ( $category !== null ) {
-			// @todo - untested
-			$data = PFValuesUtils::getAllPagesForCategory( $category, 3, $substr );
-			$data = PFMappingUtils::getMappedValues( $pages, $mappingType, $mapArgs,$wgPageFormsUseDisplayTitle );
-			$map = ( $mappingType !== null ) ? true : false; 
+			// currently uses only pagenames or display titles to search in
+			$pages = PFValuesUtils::getAllPagesForCategory( $category, 3, $substr );
+			// but do allow mapping to something else
+			if ( $mappingType !== null && $mappingType !== 'displaytitle' ) {
+				$pages = array_keys( $pages );
+				$data = PFMappingUtils::getMappedValues( $pages, $mappingType, $mapArgs,$wgPageFormsUseDisplayTitle );
+			} else {
+				$data = $pages;
+			}
+			$map = ( $mappingType !== null ) ? true : false;
+		} elseif ( $namespace !== null ) {
+			// similar to category
+			$pages = PFValuesUtils::getAllPagesForNamespace( $namespace, $substr );
+			if ( $mappingType !== null && $mappingType !== 'displaytitle' ) {
+				$pages = array_keys( $pages );
+				$data = PFMappingUtils::getMappedValues( $pages, $mappingType, $mapArgs,$wgPageFormsUseDisplayTitle );
+			} else {
+				$data = $pages;
+			}
+			$map = ( $mappingType !== null ) ? true : false;
 		} elseif ( $concept !== null ) {
 			$pages = PFValuesUtils::getAllPagesForConceptRemotely( $concept, $substr, $mappingProperty, $wgPageFormsUseDisplayTitle );
 			$data = PFMappingUtils::getMappedValues( $pages, $mappingType, $mapArgs,$wgPageFormsUseDisplayTitle );
@@ -87,11 +103,6 @@ class PFAutocompleteAPI extends ApiBase {
 			$map = ( $mappingType !== null ) ? true : false; 
 		} elseif ( $cargo_table !== null && $cargo_field !== null ) {
 			$data = self::getAllValuesForCargoField( $cargo_table, $cargo_field, $cargo_where, $substr, $base_cargo_table, $base_cargo_field, $basevalue );
-		} elseif ( $namespace !== null ) {
-			// @todo - untested
-			$pages = PFValuesUtils::getAllPagesForNamespace( $namespace, $substr );
-			$data = PFMappingUtils::getMappedValues( $pages, $mappingType, $mapArgs, $wgPageFormsUseDisplayTitle );
-			$map = ( $mappingType !== null ) ? true : false;
 		} elseif ( $external_url !== null ) {
 			$data = PFValuesUtils::getValuesFromExternalURL( $external_url, $substr );
 		} else {
