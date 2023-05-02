@@ -429,8 +429,7 @@ class PFFormField {
 				// handling.
 				$f->mUseDisplayTitle = false;
 			}
-
-			$mappedValues = PFMappingUtils::getMappedValues( $f->mPossibleValues, $mappingType, $f->mFieldArgs, $f->mUseDisplayTitle );
+			$mappedValues = PFMappingUtils::getMappedValuesForInput( $f->mPossibleValues, $f->mFieldArgs );
 			$f->mPossibleValues = $mappedValues;
 		}
 

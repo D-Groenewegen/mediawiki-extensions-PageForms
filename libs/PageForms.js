@@ -1636,7 +1636,7 @@ $.fn.initializeJSElements = function( partOfMultiple ) {
 		inputType.$element.css("min-width", min_width);
 		inputType.$element.find("a").css("margin-left", "-1px");
 		$(this).after(inputType.$element);
-		$(this).remove()
+		$(this).remove();
 	});
 
 	var tokens = new pf.select2.tokens();
