@@ -44,7 +44,9 @@ class PFMappingUtils {
 		global $wgPageFormsUseDisplayTitle;
 		$mappingType = self::getMappingType( $args, $wgPageFormsUseDisplayTitle );
 		if ( !array_key_exists( 0, $values ) ) {
-            //already named, return as-is
+            //already named associative, get values first / return as-is OR ...
+			$pages = array_keys( $values );
+			$values = self::getMappedValues( $pages, $mappingType, $args, $wgPageFormsUseDisplayTitle );
 			$res = $values;
 		} elseif ( $mappingType !== null ) {
 			$res = self::getMappedValues( $values, $mappingType, $args, $wgPageFormsUseDisplayTitle );
@@ -346,7 +348,7 @@ class PFMappingUtils {
 			$displayTitle = self::getDisplayTitles( [ $titleInstance ] );
 			$displayTitle = reset( $displayTitle );
 			$labels[ $value ] = ( $displayTitle && strtolower( trim( $displayTitle ) ) !== trim( strtolower( $value ) ) )
-				? $displayTitle . " ($value)"
+				? $displayTitle
 				: $value;
 		}
 		return $labels;

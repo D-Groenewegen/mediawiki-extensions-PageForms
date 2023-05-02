@@ -263,8 +263,9 @@ SERVICE wikibase:label { bd:serviceParam wikibase:language \"" . $wgLanguageCode
 	/**
 	 * Get all the pages that belong to a category and all its
 	 * subcategories, down a certain number of levels - heavily based on
-	 * SMW's SMWInlineQuery::includeSubcategories().
-	 *
+	 * SMW's SMWInlineQuery::includeSubcategories()
+	 * No support for substring searching by SMW or Cargo data?
+	 * Returns an associative array
 	 * @param string $top_category
 	 * @param int $num_levels
 	 * @param string|null $substring
@@ -289,6 +290,8 @@ SERVICE wikibase:label { bd:serviceParam wikibase:language \"" . $wgLanguageCode
 				$conditions = [];
 				$conditions[] = 'cl_from = page_id';
 				$conditions['cl_to'] = $category;
+
+				// $wgPageFormsUseDisplayTitle
 				if ( $wgPageFormsUseDisplayTitle ) {
 					$tables['pp_displaytitle'] = 'page_props';
 					$tables['pp_defaultsort'] = 'page_props';
@@ -380,6 +383,38 @@ SERVICE wikibase:label { bd:serviceParam wikibase:language \"" . $wgLanguageCode
 			$checkcategories = array_diff( $newcategories, [] );
 		}
 		return self::fixedMultiSort( $sortkeys, $pages );
+	}
+
+	/**
+	 * test
+	 */
+	// $wgPageFormsUseDisplayTitle
+	private static function getDisplayTitlesForCategory( $tables, $columns, $substring ) {
+		$tables['pp_displaytitle'] = 'page_props';
+		$tables['pp_defaultsort'] = 'page_props';
+		$columns['pp_displaytitle_value'] = 'pp_displaytitle.pp_value';
+		$columns['pp_defaultsort_value'] = 'pp_defaultsort.pp_value';
+		$join = [
+			'pp_displaytitle' => [
+				'LEFT JOIN', [
+					'pp_displaytitle.pp_page = page_id',
+					'pp_displaytitle.pp_propname = \'displaytitle\''
+				]
+			],
+			'pp_defaultsort' => [
+				'LEFT JOIN', [
+					'pp_defaultsort.pp_page = page_id',
+					'pp_defaultsort.pp_propname = \'defaultsort\''
+				]
+			]
+		];
+		if ( $substring != null ) {
+			$conditions[] = '((pp_displaytitle.pp_value IS NULL OR pp_displaytitle.pp_value = \'\') AND (' .
+				self::getSQLConditionForAutocompleteInColumn( 'page_title', $substring ) .
+				')) OR ' .
+				self::getSQLConditionForAutocompleteInColumn( 'pp_displaytitle.pp_value', $substring ) .
+				' OR page_namespace = ' . NS_CATEGORY;
+		}
 	}
 
 	/**
@@ -538,7 +573,6 @@ SERVICE wikibase:label { bd:serviceParam wikibase:language \"" . $wgLanguageCode
 		mixed $mappingProperty = null,
 		bool $useDisplayTitle = false
 	): array {
-		//print_r( "[using ly for $conceptName]" ); 
 		$store = PFUtils::getSMWStore();
 		if ( $store == null ) {
 			return [];
@@ -550,11 +584,11 @@ SERVICE wikibase:label { bd:serviceParam wikibase:language \"" . $wgLanguageCode
 		global $wgPageFormsAutocompleteOnAllChars;
 		$prefixWildcard = ( $wgPageFormsAutocompleteOnAllChars ) ? "*": "";
 		if ( $mappingProperty !== null ) {
-				$rawQuery .= "{$conceptArg} [[{$mappingProperty}::~{$prefixWildcard}{$substring}*]] OR {$conceptArg} [[{$mappingProperty}::~{$substring}*]]";
+				$rawQuery .= "{$conceptArg} [[{$mappingProperty}::~{$prefixWildcard}{$substring}*]] OR {$conceptArg} [[{$mappingProperty}::like:{$prefixWildcard}{$substring}*]]";
 			} elseif ( $useDisplayTitle == true ) {
-				$rawQuery .= "{$conceptArg} [[Display title of::~{$prefixWildcard}{$substring}*]]";
+				$rawQuery .= "{$conceptArg} [[Display title of::~{$prefixWildcard}{$substring}*]] OR {$conceptArg} [[Display title of::like:{$prefixWildcard}{$substring}*]]";
 			} else {
-				$rawQuery .= "{$conceptArg} [[~{$prefixWildcard}{$substring}*]]";
+				$rawQuery .= "{$conceptArg} [[~{$prefixWildcard}{$substring}*]] OR {$conceptArg} [[like:{$prefixWildcard}{$substring}*]]";
 		}
 		// Run query and get pages
 		$retrievedPages = self::getAllPagesForQuery( $rawQuery );
@@ -575,7 +609,7 @@ SERVICE wikibase:label { bd:serviceParam wikibase:language \"" . $wgLanguageCode
 		mixed $mappingProperty = null
 	) {
 		$mappingProperty = ( $mappingProperty !== null ) ? $mappingProperty : "Display title of";
-		$rawQuery = "[[-{$propertyName}::+]] [[{$mappingProperty}::~*{$substring}*]] OR [[-{$propertyName}::+]] [[{$mappingProperty}::~{$substring}*]]";
+		$rawQuery = "[[-{$propertyName}::+]] [[{$mappingProperty}::~*{$substring}*]] OR [[-{$propertyName}::+]] [[{$mappingProperty}::like:*{$substring}*]]";
 		$res = self::getAllPagesForQuery( $rawQuery );
 		return $res;
 	}
@@ -667,6 +701,7 @@ SERVICE wikibase:label { bd:serviceParam wikibase:language \"" . $wgLanguageCode
 				$conditions[] = $substringCondition;
 			}
 		} else {
+			// No displaytitle
 			$join = [];
 			if ( $substring != null ) {
 				$conditions[] = self::getSQLConditionForAutocompleteInColumn( 'page_title', $substring );
@@ -691,9 +726,10 @@ SERVICE wikibase:label { bd:serviceParam wikibase:language \"" . $wgLanguageCode
 				( $row[ 'pp_displaytitle_value' ] ) !== null &&
 				trim( str_replace( '&#160;', '', strip_tags( $row[ 'pp_displaytitle_value' ] ) ) ) !== '' ) {
 				$pages[ $title ] = htmlspecialchars_decode( $row[ 'pp_displaytitle_value'], ENT_QUOTES );
-			} else { 
+			} else {
 				// If there's more than one namespace, include the
 				// namespace prefix in the results - otherwise, don't.
+				// @DG
 				$pages[ $title ] = ( $fromMultipleNamespaces ) 
 					? $title // with prefix
 					: $titleNoPrefix;

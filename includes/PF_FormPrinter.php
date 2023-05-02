@@ -1310,13 +1310,23 @@ END;
 							$inputType = $form_field->getInputType();
 							// If the input type is "tokens', the value is not
 							// an array, but the delimiter still needs to be set.
+							
+							$poss_vals = $form_field->getPossibleValues();
+							$cur_args = $form_field->getFieldArgs();
+							$cur_args['possible_values'] = $poss_vals;
+
 							if ( $inputType == 'tokens' ) {
 								// Don't turn current values into labels just yet
 								$cur_value = PFValuesUtils::getValuesArray( $cur_value, $delimiter );
+								// Mapping is done later on
+							} elseif ( $inputType == 'combobox' ) {
+								$cur_value_arr = PFValuesUtils::getValuesArray( $cur_value, null );
+								$cur_value_arr = PFMappingUtils::getMappedValuesForInput( $cur_value_arr, $cur_args );
+								$cur_value = $cur_value_arr;
 							} else {
 								// @todo: improve support for combobox, listbox ?
 								$cur_value_str = PFValuesUtils::getValuesString( $cur_value, $delimiter );
-								$poss_vals = $form_field->getPossibleValues();
+
 								$cur_value_arr = PFMappingUtils::valueStringToLabels( $cur_value_str, $delimiter, $form_field->getFieldArgs(), $form_submitted );
 								// Sequential array back to string :
 								$cur_value = PFValuesUtils::getValuesString( $cur_value_arr, $delimiter );

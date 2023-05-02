@@ -28,15 +28,26 @@ class PFComboBoxInput extends PFFormInput {
 	}
 
 	/**
-	 * @param string $cur_value
+	 * @param string|string[] $cur_value
 	 * @param string $input_name
 	 * @param bool $is_mandatory
 	 * @param bool $is_disabled
 	 * @param array $other_args
 	 * @return string
 	 */
-	public static function getHTML( $cur_value, $input_name, $is_mandatory, $is_disabled, array $other_args ) {
+	public static function getHTML( $cur_value_raw, $input_name, $is_mandatory, $is_disabled, array $other_args ) {
 		global $wgPageFormsTabIndex, $wgPageFormsFieldNum, $wgPageFormsEDSettings;
+
+		//@DG
+		if ( is_array(  $cur_value_raw ) ) {
+			$cur_label = reset( $cur_value_raw );
+			$cur_val_keys = array_keys( $cur_value_raw );
+			$cur_value = reset( $cur_val_keys );
+		} else {
+			// Failsafe
+			$cur_label = $cur_value_raw;
+			$cur_value = $cur_value_raw;
+		}
 
 		$className = 'pfComboBox';
 		if ( array_key_exists( 'class', $other_args ) ) {
@@ -104,7 +115,9 @@ class PFComboBoxInput extends PFFormInput {
 			'value' => $cur_value,
 			'data-size' => $size * 6,
 			'style' => 'width:' . $size * 6 . 'px',
-			'disabled' => $is_disabled
+			'disabled' => $is_disabled,
+			'data-value' => $cur_value, //@DG
+			'data-label' => $cur_label //@DG
 		];
 		if ( array_key_exists( 'origName', $other_args ) ) {
 			$inputAttrs['origname'] = $other_args['origName'];
@@ -140,7 +153,11 @@ class PFComboBoxInput extends PFFormInput {
 
 		// Make sure that the current value always shows up when the
 		// form is first displayed.
-		$innerDropdown .= Html::element( 'option', [ 'selected' => true ], $cur_value );
+		// @DG
+		$innerDropdown .= Html::element( 'option', [ 
+			'selected' => true, 
+			'value' => $cur_value ], 
+		$cur_label );
 
 		$inputText = Html::rawElement( 'select', $inputAttrs, $innerDropdown );
 
