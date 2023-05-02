@@ -43,7 +43,7 @@
             this.setInputId(element.attr('id'));
             this.setValueAndLabel( curVal, curLabel );
             this.setInputAttribute('origname', element.attr('origname'));
-            this.config['autocompletesettings'] = element.attr('autocompletesettings').replace( /\\'/g, "'" );
+            this.config['autocompletesettings'] = ( element.attr('autocompletesettings') || '' ).replace( /\\'/g, "'" );
             this.config['autocompletedatatype'] = element.attr('autocompletedatatype');
             this.config['existingvaluesonly'] = element.attr('existingvaluesonly');
             this.setInputAttribute('autocompletesettings', this.config['autocompletesettings']);
