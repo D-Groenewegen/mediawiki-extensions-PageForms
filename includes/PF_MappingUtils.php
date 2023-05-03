@@ -35,7 +35,7 @@ class PFMappingUtils {
 	}
 
 	/**
-	 * Map values if possible and return a named array
+	 * Map values if possible and return a named (associative) array
 	 * @param array $values
 	 * @param array $args
 	 * @return array
@@ -43,8 +43,8 @@ class PFMappingUtils {
 	public static function getMappedValuesForInput( array $values, array $args = [] ) {
 		global $wgPageFormsUseDisplayTitle;
 		$mappingType = self::getMappingType( $args, $wgPageFormsUseDisplayTitle );
-		if ( !array_key_exists( 0, $values ) ) {
-            //already named associative, get values first / return as-is OR ...
+		if ( self::isIndexedArray( $values ) == false) {
+            // already named associative
 			$pages = array_keys( $values );
 			$values = self::getMappedValues( $pages, $mappingType, $args, $wgPageFormsUseDisplayTitle );
 			$res = $values;
@@ -59,18 +59,31 @@ class PFMappingUtils {
 		return $res;
 	}
 
+	/**
+	 * Check if array is indexed/sequential (true), else named/associative (false)
+	 * @param array $arr
+	 * @return string
+	 */
+	private static function isIndexedArray( $arr ) {
+		if ( array_keys( $arr ) == range(0, count( $arr ) - 1) ) {
+			return true;
+		} else {
+			return false;
+		}
+	}
+
 	/** 
 	 * Return named array of mapped values
 	 * Static version of PF_FormField::setMappedValues
 	 * @param array $values
-	 * @param string $mappingType
+	 * @param string|null $mappingType
 	 * @param array $args
 	 * @param bool $useDisplayTitle
 	 * @return array
 	 */
 	public static function getMappedValues( 
 		array $values,
-		string $mappingType,
+		mixed $mappingType,
 		array $args,
 		bool $useDisplayTitle
 		) {

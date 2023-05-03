@@ -281,9 +281,10 @@
                         if ( showAllValues ) {
                             curString = "";
                         }
+                        var arrayType = ( Array.isArray(data) ) ? 'indexed' : 'associative';
                         if (Array.isArray(data) || typeof data == 'object') {
                             for (let key in data) {
-                                var optionVal = key;
+                                var optionVal = ( arrayType == 'indexed' ) ? data[key] : key;
                                 var optionLabel = data[key];
                                 if ( optionLabel == curString ) {
                                     self.itemFound = true;
