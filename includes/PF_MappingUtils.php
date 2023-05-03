@@ -87,6 +87,7 @@ class PFMappingUtils {
 		array $args,
 		bool $useDisplayTitle
 		) {
+		$mappedValues = null;
 		switch( $mappingType ) {
 			case 'mapping property':
 				$mappingProperty = $args['mapping property'];
@@ -114,7 +115,7 @@ class PFMappingUtils {
 				// @todo - why just array_values ?
 				break;
 		}
-		$res = ( $mappedValues !== null ) ? self::disambiguateLabels( $mappedValues ) : [];
+		$res = ( $mappedValues !== null ) ? self::disambiguateLabels( $mappedValues ) : $values;
 		return $res;
 	}
 
