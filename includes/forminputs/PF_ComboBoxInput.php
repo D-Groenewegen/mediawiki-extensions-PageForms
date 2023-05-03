@@ -116,8 +116,8 @@ class PFComboBoxInput extends PFFormInput {
 			'data-size' => $size * 6,
 			'style' => 'width:' . $size * 6 . 'px',
 			'disabled' => $is_disabled,
-			'data-value' => $cur_value, //@DG
-			'data-label' => $cur_label //@DG
+			'data-value' => $cur_value,
+			'data-label' => $cur_label
 		];
 		if ( array_key_exists( 'origName', $other_args ) ) {
 			$inputAttrs['origname'] = $other_args['origName'];
@@ -130,6 +130,12 @@ class PFComboBoxInput extends PFFormInput {
 		}
 		if ( $remoteDataType !== null ) {
 			$inputAttrs['autocompletedatatype'] = $remoteDataType;
+		}
+		if ( array_key_exists( 'mapping property', $other_args ) ) {
+			$inputAttrs['mappingproperty'] = $other_args['mapping property'];
+		}
+		if ( array_key_exists( 'mapping template', $other_args ) ) {
+			$inputAttrs['mappingtemplate'] = $other_args['mapping template'];
 		}
 
 		$innerDropdown = '';

@@ -49,6 +49,8 @@
             this.setInputAttribute('autocompletesettings', this.config['autocompletesettings']);
             this.setInputAttribute('placeholder', element.attr('placeholder'));
             this.setInputAttribute('tabIndex', element.attr('tabindex'));
+            this.setInputAttribute('mappingproperty', element.attr('mappingproperty'));
+            this.setInputAttribute('mappingtemplate', element.attr('mappingtemplate'));
     
             // Initialize values in the combobox
             this.setValues();
@@ -183,6 +185,18 @@
                         data_source = encodeURIComponent( data_source );
                     }
                     my_server += "?action=pfautocomplete&format=json&" + data_type + "=" + data_source + "&substr=" + curString;
+
+                    // Mapping property (Semantic MediaWiki) 
+                    var mappingProperty = this.$input.attr('mappingproperty');
+                    if ( typeof mappingProperty !== 'undefined' && mappingProperty !== false ) {
+                        my_server += "&mappingproperty=" + mappingProperty;
+                    }
+                    // Mapping template (exclusive to autocompletion?)
+                    var mappingTemplate = this.$input.attr('mappingtemplate');
+                    if ( typeof mappingTemplate !== 'undefined' && mappingTemplate !== false ) {
+                        my_server += "&mappingtemplate=" + mappingTemplate;
+                    }
+                    
                 }
     
                 apiRequest = $.ajax({
@@ -542,7 +556,9 @@
         };
     
         pf.ComboBoxInput.prototype.setInputAttribute = function (attr, value) {
-            this.$input.attr(attr, value);
+            if (typeof value !== 'undefined' && value !== false) {
+                this.$input.attr(attr, value);
+            }
         };
     
         /**
