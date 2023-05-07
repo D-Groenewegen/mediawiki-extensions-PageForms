@@ -586,6 +586,8 @@ SERVICE wikibase:label { bd:serviceParam wikibase:language \"" . $wgLanguageCode
 		if ( $mappingProperty !== null ) {
 				$rawQuery .= "{$conceptArg} [[{$mappingProperty}::~{$prefixWildcard}{$substring}*]] OR {$conceptArg} [[{$mappingProperty}::like:{$prefixWildcard}{$substring}*]]";
 			} elseif ( $useDisplayTitle == true ) {
+				// expects that 'Display title of' is available as a property
+				// @todo - may not be the case. Is a solution feasible?
 				$rawQuery .= "{$conceptArg} [[Display title of::~{$prefixWildcard}{$substring}*]] OR {$conceptArg} [[Display title of::like:{$prefixWildcard}{$substring}*]]";
 			} else {
 				$rawQuery .= "{$conceptArg} [[~{$prefixWildcard}{$substring}*]] OR {$conceptArg} [[like:{$prefixWildcard}{$substring}*]]";

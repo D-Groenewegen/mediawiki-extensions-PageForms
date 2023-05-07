@@ -102,21 +102,26 @@
 			var elem = evt.params.data.element;
 
 			if( !elem ) {
-				var data = $(element).select2('data');
+				// Remove duplicate option if any
+				// @hack: better avoid duplicates
+				$(element).find( "option[data-select2-tag='true']" ).remove();
+
+				var data = $(element).select2('data'); // option objects
 				elem = data.filter(function(obj) {
 					return obj.id === evt.params.data.id
 				});
 				if( !elem.length || !elem[0] || typeof elem[0].element == 'undefined' ) {
 					return;
 				}
+				// First option only in case of duplicates
 				elem = elem[0].element;
 			}
 
 			var $element = $(elem);
-
 			$element.detach();
 			$(this).append($element);
 			$(this).trigger("change");
+			
 			// In order for this selection to truly "take", the
 			// full input needs to be clicked on, for some reason.
 			// We click on it *twice*, though, to get rid of the
@@ -160,34 +165,23 @@
 				if ( $target.is( $("span.select2-match-entire") ) ) {
 					$target = $target.parent();
 				}
-				// get the text, label and id of the clicked value
-				// clickedValue may contain pagename, but results are unreliable
-				var targetData = $target.data();
-				var clickedValueId = targetData.select2Id;
-				var clickedValue = $target[0].title; 
+
+				// Get clicked label and value
 				var clickedLabel = $target[0].children[1].textContent;
-				// get current selection
+				// Look up matching value in options list under select
+				var clickedValue = $input.find('option').filter(function() {
+					return $(this).text() === clickedLabel;
+				}).first().val();
+				var clickedValue = ( clickedValue !== null ) ? clickedValue : clickedLabel; // don't rely on $target[0].title
+
+				// Remove from current selection in select 'value'
 				var curVals = inputData.val();
-				var curLabelVals = $input.attr( "value" );
-
-				// remove that value from select2 selection
-				inputData.$container.find(".select2-selection__choice").map( function() {
-					var selectedLabel = $(this).find(".select2-match-entire").text();
-					if ( selectedLabel !== clickedLabel ) {
-						return $(this);
-					} else {
-						$(this).remove();
-					}
-        		}).trigger("change");
-
-				/* Legacy method for reference
-				var newValue = $.grep( curVals, function (value) {
-					return value !== clickedValue;
+				var newValueList = $.grep( curVals, function (val) {
+					return val !== clickedValue;
 				});
-				$input.val(newValue).trigger("change");
-				*/
+				$input.val(newValueList).trigger("change");
 
-				// set the currently entered label to equal the clicked label
+				// Set the currently entered label to equal the clicked label
 				inputData.$container.find(".select2-search__field").val(clickedLabel).trigger("input").focus();
 			} );
 		}
@@ -350,13 +344,18 @@
 				}
 
 			} else {
+				// Regular local autcompletion
 				var wgPageFormsAutocompleteValues = mw.config.get( 'wgPageFormsAutocompleteValues' );
 				data = wgPageFormsAutocompleteValues[autocompletesettings];
 				//Convert data into the format accepted by Select2
+				var arrayType = ( Array.isArray(data) ) ? 'indexed' : 'named';
 				if ( data !== undefined && data !== null ) {
 					for (var key in data) {
+						var optionVal = ( arrayType == 'indexed' ) ? data[key] : key;
+                        var optionLabel = data[key];
 						values.push({
-							id: data[key], text: data[key]
+							id: optionVal, 
+							text: optionLabel
 						});
 					}
 				}
