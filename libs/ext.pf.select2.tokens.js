@@ -104,8 +104,12 @@
 			if( !elem ) {
 				// Remove duplicate option if any
 				// @hack: better avoid duplicates
-				$(element).find( "option[data-select2-tag='true']" ).remove();
-
+				var optionVal = evt.params.data.id;
+				$(element).find( "option[value='" + optionVal + "']" ).each( function( index ) {
+					if ( index > 0 ) {
+						$(this).remove();
+					}
+				});
 				var data = $(element).select2('data'); // option objects
 				elem = data.filter(function(obj) {
 					return obj.id === evt.params.data.id
