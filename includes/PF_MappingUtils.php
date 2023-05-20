@@ -83,7 +83,7 @@ class PFMappingUtils {
 	 */
 	public static function getMappedValues( 
 		array $values,
-		mixed $mappingType,
+		?string $mappingType,
 		array $args,
 		bool $useDisplayTitle
 		) {
@@ -131,8 +131,8 @@ class PFMappingUtils {
 	 * @return string[]
 	 */
 	public static function valueStringToLabels( 
-		mixed $valueString, 
-		mixed $delimiter, 
+		?string $valueString, 
+		?string $delimiter, 
 		array $args = [], 
 		bool $form_submitted = false
 	) {
