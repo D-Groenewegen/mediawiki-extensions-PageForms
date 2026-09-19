@@ -781,7 +781,8 @@ SERVICE wikibase:label { bd:serviceParam wikibase:language \"" . $wgLanguageCode
 		} elseif ( $source_type == 'concept' ) {
 			$names_array = self::getAllPagesForConcept( $source_name );
 		} elseif ( $source_type == 'query' ) {
-			$names_array = self::getAllPagesForQuery( $source_name );
+			$rawQuery = self::processSemanticQuery( $source_name, '+' );
+			$names_array = self::getAllPagesForQuery( $rawQuery );
 		} elseif ( $source_type == 'wikidata' ) {
 			$names_array = self::getAllValuesFromWikidata( $source_name );
 			sort( $names_array );
@@ -813,6 +814,10 @@ SERVICE wikibase:label { bd:serviceParam wikibase:language \"" . $wgLanguageCode
 		} elseif ( array_key_exists( 'values from wikidata', $field_args ) ) {
 			$autocompleteFieldType = 'wikidata';
 			$autocompletionSource = $field_args['values from wikidata'];
+		} elseif ( array_key_exists( 'values from query', $field_args ) ) {
+			// evaluate before 'autocomplete field type' and 'semantic_property'
+			$autocompletionSource = $field_args['values from query'];
+			$autocompleteFieldType = 'semantic_query';
 		} elseif ( array_key_exists( 'values', $field_args ) ) {
 			global $wgPageFormsFieldNum;
 			$autocompleteFieldType = 'values';
@@ -1061,6 +1066,21 @@ SERVICE wikibase:label { bd:serviceParam wikibase:language \"" . $wgLanguageCode
 			$pageNames[] = $diWikiPage->getTitle()->getFullText();
 		}
 		return $pageNames;
+	}
+
+	/*
+	 * Helper method for 'values from query'
+	 * @param string $query
+	 * @param string $substr
+	 * $return string
+	 */
+	public static function processSemanticQuery( $query, $substr = '' ) {
+		$query = str_replace(
+			[ "&lt;", "&gt;", "(", ")", '%', '@' ],
+			[ "<", ">", "[", "]", '|', $substr ],
+			$query
+		);
+		return $query;
 	}
 
 	public static function getMaxValuesToRetrieve( $substring = null ) {
