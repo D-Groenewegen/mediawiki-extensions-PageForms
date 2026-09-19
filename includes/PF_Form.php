@@ -15,7 +15,7 @@ class PFForm {
 	private $mAssociatedCategory;
 	private $mItems;
 
-	static function create( $formName, $items ) {
+	static function create( string $formName, $items ) {
 		$form = new PFForm();
 		$form->mFormName = ucfirst( str_replace( '_', ' ', $formName ) );
 		$form->mAssociatedCategory = null;

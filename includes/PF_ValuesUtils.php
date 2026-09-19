@@ -849,7 +849,7 @@ SERVICE wikibase:label { bd:serviceParam wikibase:language \"" . $wgLanguageCode
 		}
 
 		if ( $wgCapitalLinks && $autocompleteFieldType != 'external_url' && $autocompleteFieldType != 'cargo field' && $autocompleteFieldType != 'semantic_query' ) {
-			$autocompletionSource = PFUtils::getContLang()->ucfirst( $autocompletionSource );
+			$autocompletionSource = PFUtils::getContLang()->ucfirst( $autocompletionSource ?? "" );
 		}
 
 		return [ $autocompleteFieldType, $autocompletionSource ];
